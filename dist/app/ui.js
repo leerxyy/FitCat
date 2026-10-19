@@ -46,7 +46,7 @@ export function openModal(title, content, { wide = false, cls = '', cleanup } = 
   if (document.querySelector('#modal-root dialog')) closeModal();
   returnFocus = document.activeElement;
   modalCleanup = cleanup;
-  document.getElementById('modal-root').innerHTML = `<dialog class="dialog ${wide ? 'dialog-wide' : ''} ${cls}" aria-labelledby="dialog-title"><div class="dialog-header"><div><span class="eyebrow">ВАШЕ ПРОСТРАНСТВО RITUA</span><h2 id="dialog-title">${e(title)}</h2></div>${iconBtn('close', 'Закрыть окно', 'close-modal')}</div><div class="dialog-content">${content}</div></dialog>`;
+  document.getElementById('modal-root').innerHTML = `<dialog class="dialog ${wide ? 'dialog-wide' : ''} ${cls}" aria-labelledby="dialog-title"><div class="dialog-header"><div><span class="eyebrow">RITUA / ATELIER</span><h2 id="dialog-title">${e(title)}</h2></div>${iconBtn('close', 'Закрыть окно', 'close-modal')}</div><div class="dialog-content">${content}</div></dialog>`;
   const dialog = document.querySelector('#modal-root dialog');
   dialog.addEventListener('cancel', ev => { ev.preventDefault(); closeModal(); });
   dialog.addEventListener('click', ev => { if (ev.target === dialog) { const rect = dialog.getBoundingClientRect(); if (ev.clientX < rect.left || ev.clientX > rect.right || ev.clientY < rect.top || ev.clientY > rect.bottom) closeModal(); } });

@@ -1,7 +1,7 @@
 {
-  "name": "ritua",
-  "version": "1.0.0",
-  "description": "RITUA — персональный дневник благополучия",
+  "name": "ritua-atelier",
+  "version": "2.0.0",
+  "description": "RITUA Atelier — персональное пространство ежедневной заботы",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,5 +10,7 @@
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

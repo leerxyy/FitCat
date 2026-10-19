@@ -1,4 +1,5 @@
 import { DEFAULT_HABITS, RECIPES, recipeNutrition, INTENTIONS } from './data.js';
+import { normalizeRhythm, normalizePlan } from './atelier.js';
 
 export const STORAGE_KEY = 'ritua.workspace.v1';
 export const RECOVERY_KEY = 'ritua.recovery.v1';
@@ -15,9 +16,9 @@ export function validDate(s) {
 }
 export function shiftDate(key, days) { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + days); return dateKey(d); }
 export function dateRange(end, length) { return Array.from({ length }, (_, i) => shiftDate(end, i - length + 1)); }
-export function emptyDay() { return { foods: [], water: 0, waterLog: [], steps: 0, activeMinutes: 0, habits: [], note: '', mood: '' }; }
+export function emptyDay() { return { foods: [], water: 0, waterLog: [], steps: 0, activeMinutes: 0, habits: [], note: '', mood: '', rhythm: 'balance', intention: '', plan: null }; }
 export function newWorkspace(profile = {}) {
-  return { kind: 'ritua-backup', version: 1, revision: 0, updatedAt: new Date().toISOString(), profile: { ...DEFAULT_PROFILE, ...profile }, days: {}, weights: [], products: [], templates: [], favorites: [], habits: structuredClone(DEFAULT_HABITS), preferences: { theme: 'light', reducedMotion: false }, legacy: null };
+  return { kind: 'ritua-backup', version: 2, edition: 'atelier', revision: 0, updatedAt: new Date().toISOString(), profile: { ...DEFAULT_PROFILE, ...profile }, days: {}, weights: [], products: [], templates: [], favorites: [], habits: structuredClone(DEFAULT_HABITS), preferences: { theme: 'light', reducedMotion: false }, legacy: null };
 }
 export function totals(foods = [], checkedOnly = true) {
   const total = { kcal: 0, protein: 0, fat: 0, carbs: 0 };
@@ -48,7 +49,7 @@ function normalizeProduct(p) {
 }
 export function validateWorkspace(raw, { strict = false } = {}) {
   const invalid = () => { throw new Error('Файл не является корректной резервной копией RITUA. Ваши записи не изменены.'); };
-  if (!raw || raw.kind !== 'ritua-backup' || raw.version !== 1 || !raw.profile || typeof raw.days !== 'object' || Array.isArray(raw.days) || raw.days === null) invalid();
+  if (!raw || raw.kind !== 'ritua-backup' || ![1, 2].includes(raw.version) || !raw.profile || typeof raw.days !== 'object' || Array.isArray(raw.days) || raw.days === null) invalid();
   const result = newWorkspace();
   if (strict && ['weights', 'products', 'templates', 'favorites', 'habits'].some(k => !Array.isArray(raw[k]))) invalid();
   result.revision = number(raw.revision, 0, Number.MAX_SAFE_INTEGER);
@@ -67,6 +68,7 @@ export function validateWorkspace(raw, { strict = false } = {}) {
   for (const [key, day] of Object.entries(raw.days)) {
     if (!validDate(key) || !day || !Array.isArray(day.foods) || day.foods.length > 1000) { if (strict) invalid(); else continue; }
     if (strict && [['water', 15000], ['steps', 100000], ['activeMinutes', 1440]].some(([k, max]) => day[k] != null && (!Number.isFinite(Number(day[k])) || Number(day[k]) < 0 || Number(day[k]) > max))) invalid();
+    if (strict && day.plan != null && (!Array.isArray(day.plan) || normalizePlan(day.plan).length !== day.plan.length)) invalid();
     const foods = day.foods.map(normalizeFood).filter(Boolean);
     if (strict && foods.length !== day.foods.length) invalid();
     const ids = new Set();
@@ -75,6 +77,7 @@ export function validateWorkspace(raw, { strict = false } = {}) {
       waterLog: (Array.isArray(day.waterLog) ? day.waterLog : []).slice(-200).filter(l => l && typeof l.id === 'string' && Number.isFinite(l.amount) && l.amount > 0 && l.amount <= 2000).map(l => ({ id: text(l.id), amount: l.amount, time: text(l.time, 30) })),
       habits: [...new Set((Array.isArray(day.habits) ? day.habits : []).filter(h => typeof h === 'string').slice(0, 50))],
       note: text(day.note, 3000), mood: ['great', 'good', 'okay', 'low', ''].includes(day.mood) ? day.mood : '',
+      rhythm: normalizeRhythm(day.rhythm), intention: text(day.intention, 120), plan: normalizePlan(day.plan),
       ...(day.legacyTotal ? { legacyTotal: Object.fromEntries(['kcal', 'protein', 'fat', 'carbs'].map(k => [k, number(day.legacyTotal[k], 0, 100000)])) } : {}),
     };
   }

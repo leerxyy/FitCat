@@ -123,7 +123,7 @@ test('backup roundtrip preserves user content, settings, custom products and tem
   assert.equal(next.products[0].id, 'custom-1'); assert.equal(next.templates[0].foods[0].kcal, 180);
 });
 test('invalid imports fail before mutation and reject unknown schemas and malformed values', () => {
-  for (const raw of ['{', '{}', '{"version":999}', JSON.stringify({ ...newWorkspace(), version: 2 })]) assert.throws(() => parseBackup(raw));
+  for (const raw of ['{', '{}', '{"version":999}', JSON.stringify({ ...newWorkspace(), version: 999 })]) assert.throws(() => parseBackup(raw));
   let raw = newWorkspace(); raw.profile.calories = -50; assert.throws(() => parseBackup(raw));
   raw = newWorkspace(); raw.days['2026-02-30'] = emptyDay(); assert.throws(() => parseBackup(raw));
   raw = newWorkspace(); raw.days['2026-10-19'] = { ...emptyDay(), water: -5 }; assert.throws(() => parseBackup(raw));

@@ -42,9 +42,10 @@ const paths = {
   coffee: '<path d="M3 8h14v7a6 6 0 0 1-12 0V8M17 9h2a3 3 0 0 1 0 6h-2M7 2v3M12 2v3M2 22h18"/>',
 };
 export function icon(name, cls = '') { return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.leaf}</svg>`; }
-export function brandMark(cls = '') { return `<svg class="brand-mark ${cls}" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M9 30V10h9a7 7 0 0 1 0 14H9m10 0 11 6" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M26 8h7v7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="m25 16 8-8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`; }
+export function brandMark(cls = '') { return `<svg class="brand-mark ${cls}" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="21.5" stroke="currentColor" stroke-width=".9" opacity=".65"/><path d="M14 12h11a7 7 0 0 1 0 14h-8m0-14v24m-4 0h9m2-10 10 10h-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
 
-export function foodArt(kind = 'bowl') {
+export function foodArt(kind = 'bowl', photoId = null) {
+  if (['toast', 'bowl', 'yogurt', 'chicken', 'oats', 'lentils'].includes(photoId)) return `<img class="food-art recipe-photo" src="assets/recipe-${photoId}.webp" width="1536" height="1024" alt="" loading="lazy" decoding="async">`;
   const base = '<ellipse cx="160" cy="154" rx="102" ry="35" fill="#243d31" opacity=".1"/><circle cx="160" cy="125" r="88" fill="#faf8f0"/><circle cx="160" cy="125" r="74" fill="#e6e4d7"/>';
   const filling = kind === 'toast'
     ? '<g transform="rotate(-14 160 125)"><rect x="102" y="67" width="116" height="115" rx="24" fill="#a96d3f"/><rect x="108" y="72" width="104" height="102" rx="20" fill="#d3a774"/><path d="M119 91q45-26 79 7l-6 53q-38 25-74-8Z" fill="#78905b"/><path d="m128 93 52 63m-37-68 49 55m-65-27 40 46" stroke="#b5c087" stroke-width="6" stroke-linecap="round"/><path d="M133 114c-6-32 54-43 61-7 12 14-5 40-27 36-33 6-50-15-34-29Z" fill="#fffaf0"/><circle cx="168" cy="117" r="18" fill="#e5a44d"/></g><circle cx="102" cy="153" r="13" fill="#b76c50"/><circle cx="218" cy="94" r="11" fill="#b76c50"/>'

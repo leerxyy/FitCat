@@ -1,8 +1,8 @@
 /* RITUA offline shell. Diary data stays in localStorage, never in HTTP caches. */
 const BASE = new URL('./', self.location.href);
 const PREFIX = `ritua:${BASE.pathname}:`;
-const CACHE = `${PREFIX}bb429c1df73664`;
-const FILES = ["app/app.js","app/core.js","app/data.js","app/icons.js","app/theme.js","app/ui.js","app/views.js","assets/favicon.svg","assets/icon-192.png","assets/icon-512.png","assets/icon-maskable-512.png","assets/logo-light.svg","assets/logo.svg","assets/ritua-still-life.webp","index.html","manifest.webmanifest","styles.css"];
+const CACHE = `${PREFIX}611c8c04b4d438`;
+const FILES = ["app/app.js","app/atelier-views.js","app/atelier.js","app/core.js","app/data.js","app/icons.js","app/theme.js","app/ui.js","app/views.js","assets/atelier-courtyard.webp","assets/favicon.svg","assets/icon-192.png","assets/icon-512.png","assets/icon-maskable-512.png","assets/logo-light.svg","assets/logo.svg","assets/recipe-bowl.webp","assets/recipe-chicken.webp","assets/recipe-lentils.webp","assets/recipe-oats.webp","assets/recipe-toast.webp","assets/recipe-yogurt.webp","assets/ritua-still-life.webp","atelier.css","index.html","manifest.webmanifest","styles.css"];
 const URLS = FILES.map(file => new URL(file, BASE).href);
 const INDEX = new URL('index.html', BASE).href;
 

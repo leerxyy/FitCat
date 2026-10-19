@@ -1,8 +1,9 @@
 import { Workspace, STORAGE_KEY, RECOVERY_KEY, newWorkspace, validateWorkspace, dateKey, validDate, shiftDate, emptyDay, totals, portion, parseBackup, uid, round, clamp, escapeHTML as e, toCSV } from './core.js';
+import { RHYTHMS, MOODS, dayPlan, nextMoment, normalizePlan, commandMatches, BREATH_DURATIONS } from './atelier.js';
 import { PRODUCTS, RECIPES, MEALS, INTENTIONS, recipeNutrition } from './data.js';
 import { icon, brandMark, foodArt } from './icons.js';
 import { num, dateLabel, btn, iconBtn, field, errorText, showFormError, toast, openModal, closeModal, confirmDialog, downloadFile, emptyState } from './ui.js';
-import * as views from './views.js';
+import * as views from './atelier-views.js';
 
 let storage;
 try { storage = globalThis.localStorage; } catch { storage = { getItem() { throw new Error('Storage unavailable'); }, setItem() { throw new Error('Storage unavailable'); } }; }
@@ -21,19 +22,20 @@ export function applyPreferences() {
   const dark = p.theme === 'dark' || (p.theme === 'system' && globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.dataset.motion = p.reducedMotion ? 'reduced' : 'normal';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#18251f' : '#244638');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#20291e' : '#4b5b3d');
 }
 function updateChrome() {
   const navName = views.NAV.find(n => n[0] === route)?.[1] || 'Настройки';
   $('breadcrumb-current').textContent = navName;
-  document.title = `${navName} · RITUA`;
+  document.title = `${navName} · RITUA Atelier`;
   document.querySelectorAll('[data-nav]').forEach(a => { const active = a.dataset.nav === route; a.classList.toggle('active', active); if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   $('profile-avatar').textContent = workspace.state.profile.name.trim().charAt(0).toLocaleUpperCase('ru') || 'R';
   $('save-status').textContent = workspace.demo ? 'Демо-пространство' : navigator.onLine === false ? 'Сохранено на устройстве' : 'Всё сохранено';
   $('save-status').classList.toggle('is-demo', workspace.demo);
   $('demo-banner').innerHTML = workspace.demo ? `<div class="demo-banner">${icon('spark')}<span>Деморежим · пример вашего дня</span><button type="button" data-action="setup">Начать свой день ${icon('arrow')}</button></div>` : '';
-  const allDone = workspace.state.habits.every(h => workspace.getDay(dateKey()).habits.includes(h.id));
+  const allDone = dayPlan(workspace.state, workspace.getDay(dateKey())).every(h => h.done);
   document.querySelector('.notification-dot').hidden = allDone;
+  if ($('current-mood')) $('current-mood').textContent = MOODS.find(m => m.id === workspace.getDay(dateKey()).mood)?.name || 'Как вы сегодня?';
 }
 export function render({ navigate = false } = {}) {
   applyPreferences(); updateChrome();
@@ -151,7 +153,7 @@ async function searchOnline(button) {
 }
 
 function openSetup() {
-  const dialog = openModal('Здесь начинается ваш ритм.', `<form id="setup-form" class="setup-form"><div class="setup-art" role="img" aria-label="Вода, апельсин и оливковые листья на тёплом камне"></div><p class="setup-description">Немного пространства для себя — каждый день.<br>Начнём с простых ориентиров. Их всегда можно изменить.</p>${field('Как к вам обращаться', 'setup-name', '', 'maxlength="50" autocomplete="given-name" autofocus', { hint: 'Можно оставить пустым' })}<div class="form-grid">${field('Энергия, ккал', 'setup-calories', 2200, 'min="800" max="6000" step="1"', { type: 'number', required: true })}${field('Вода, мл', 'setup-water', 2000, 'min="250" max="6000" step="50"', { type: 'number', required: true })}${field('Движение, шагов', 'setup-steps', 8000, 'min="500" max="50000" step="100"', { type: 'number', required: true })}<label class="field"><span>Мне хочется</span><select id="setup-intention">${Object.entries(INTENTIONS).map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}</select></label></div><div class="inline-note compact">${icon('info')}Числа — стартовый пример, а не персональный расчёт. Белки, жиры и углеводы можно настроить в профиле.</div><div class="setup-footnote">${icon('shield')}Демо-записи не попадут в ваш дневник. Данные сохраняются только в этом браузере.</div>${errorText}<div class="dialog-actions">${btn('Пока посмотреть', 'close-modal', { cls: 'button button-ghost' })}${btn('Создать мой дневник', '', { type: 'submit', cls: 'button button-primary', symbol: 'arrow' })}</div></form>`);
+  const dialog = openModal('Здесь начинается ваш ритм.', `<form id="setup-form" class="setup-form"><div class="setup-art" role="img" aria-label="Тихий внутренний двор с оливковым деревом и отражением в воде"></div><p class="setup-description">Немного пространства для себя — каждый день.<br>Начнём с простых ориентиров. Их всегда можно изменить.</p>${field('Как к вам обращаться', 'setup-name', '', 'maxlength="50" autocomplete="given-name" autofocus', { hint: 'Можно оставить пустым' })}<div class="form-grid">${field('Энергия, ккал', 'setup-calories', 2200, 'min="800" max="6000" step="1"', { type: 'number', required: true })}${field('Вода, мл', 'setup-water', 2000, 'min="250" max="6000" step="50"', { type: 'number', required: true })}${field('Движение, шагов', 'setup-steps', 8000, 'min="500" max="50000" step="100"', { type: 'number', required: true })}<label class="field"><span>Мне хочется</span><select id="setup-intention">${Object.entries(INTENTIONS).map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}</select></label></div><div class="inline-note compact">${icon('info')}Числа — стартовый пример, а не персональный расчёт. Белки, жиры и углеводы можно настроить в профиле.</div><div class="setup-footnote">${icon('shield')}Демо-записи не попадут в ваш дневник. Данные сохраняются только в этом браузере.</div>${errorText}<div class="dialog-actions">${btn('Пока посмотреть', 'close-modal', { cls: 'button button-ghost' })}${btn('Создать мой дневник', '', { type: 'submit', cls: 'button button-primary', symbol: 'arrow' })}</div></form>`);
   dialog.querySelector('form').addEventListener('submit', event => {
     event.preventDefault(); const form = event.target;
     try {
@@ -197,7 +199,7 @@ function openWeight() {
 function openRecipe(id) {
   const r = RECIPES.find(r => r.id === id); if (!r) return;
   const t = recipeNutrition(r);
-  openModal(r.name, `<div class="recipe-detail-art ${r.tint}">${foodArt(r.art)}</div><p class="soft-copy">${r.subtitle} · ${r.time} минут · 1 порция (${num(t.weight)} г)</p><div class="recipe-nutrition">${[['kcal', 'Ккал'], ['protein', 'Белки, г'], ['fat', 'Жиры, г'], ['carbs', 'Углеводы, г']].map(([k, name]) => `<div><strong>${num(t[k])}</strong><span>${name}</span></div>`).join('')}</div><h3>Что понадобится</h3><ul class="recipe-ingredients">${r.ingredients.map(([id, grams]) => `<li><span>${PRODUCTS.find(p => p.id === id).name}</span><span>${num(grams)} г</span></li>`).join('')}</ul><h3>Готовим без спешки</h3><ol class="recipe-steps">${r.steps.map(step => `<li>${step}</li>`).join('')}</ol><p class="soft-copy">Пищевая ценность ориентировочная. Вес порции рассчитан по указанным ингредиентам и может измениться при готовке.</p><div class="dialog-actions">${btn('В избранное', 'favorite', { value: `recipe-${id}`, cls: 'button button-ghost', symbol: 'heart' })}${btn('В дневник', 'add-recipe', { value: id, cls: 'button button-primary', symbol: 'plus' })}</div>`);
+  openModal(r.name, `<div class="recipe-detail-art ${r.tint}">${foodArt(r.art, r.id)}</div><p class="soft-copy">${r.subtitle} · ${r.time} минут · 1 порция (${num(t.weight)} г)</p><div class="recipe-nutrition">${[['kcal', 'Ккал'], ['protein', 'Белки, г'], ['fat', 'Жиры, г'], ['carbs', 'Углеводы, г']].map(([k, name]) => `<div><strong>${num(t[k])}</strong><span>${name}</span></div>`).join('')}</div><h3>Что понадобится</h3><ul class="recipe-ingredients">${r.ingredients.map(([id, grams]) => `<li><span>${PRODUCTS.find(p => p.id === id).name}</span><span>${num(grams)} г</span></li>`).join('')}</ul><h3>Готовим без спешки</h3><ol class="recipe-steps">${r.steps.map(step => `<li>${step}</li>`).join('')}</ol><p class="soft-copy">Пищевая ценность ориентировочная. Вес порции рассчитан по указанным ингредиентам и может измениться при готовке.</p><div class="dialog-actions">${btn('В избранное', 'favorite', { value: `recipe-${id}`, cls: 'button button-ghost', symbol: 'heart' })}${btn('В дневник', 'add-recipe', { value: id, cls: 'button button-primary', symbol: 'plus' })}</div>`);
 }
 function addRecipe(id) { const r = RECIPES.find(r => r.id === id); if (r) openFood(r.category, { recipe: { ...recipeNutrition(r), name: r.name } }); }
 function saveTemplate(meal) {
@@ -216,27 +218,140 @@ function applyTemplate(id) {
   dialog.querySelector('form').addEventListener('submit', ev => { ev.preventDefault(); try { const meal = $('template-meal').value, checked = date <= dateKey() && $('template-checked').checked; workspace.dayUpdate(date, d => { if (d.foods.length + t.foods.length > 1000) throw new Error('Слишком много записей за день.'); d.foods.push(...t.foods.map(f => ({ ...f, id: uid(), meal, checked }))); }); closeModal(); render(); toast('Любимое сочетание добавлено в дневник.'); } catch (error) { showFormError(error, ev.target); } });
 }
 
+function openDayEditor() {
+  const date = selectedDate, day = workspace.getDay(date), plan = dayPlan(workspace.state, day);
+  const dialog = openModal('Соберите день по-своему.', `<form id="day-plan-form"><p class="setup-description">${dateLabel(date, { day: 'numeric', month: 'long' })}. Выберите небольшие действия, которым хочется найти место. Часы — ориентир, а не дедлайн.</p><div class="form-grid"><label class="field" for="plan-rhythm"><span>Ритм дня</span><select id="plan-rhythm">${Object.entries(RHYTHMS).map(([id, r]) => `<option value="${id}" ${(day.rhythm || 'balance') === id ? 'selected' : ''}>${r.name}</option>`).join('')}</select></label>${field('Намерение на день', 'plan-intention', day.intention, 'maxlength="120" placeholder="Например, не спешить за обедом"')}</div><div class="day-plan-editor">${workspace.state.habits.map((h, i) => { const item = plan.find(p => p.id === h.id); return `<div class="day-plan-edit-row"><label for="plan-habit-${i}"><input type="checkbox" id="plan-habit-${i}" data-habit-id="${e(h.id)}" ${item ? 'checked' : ''}><span><strong>${e(h.name)}</strong><small>${e(h.detail || 'Небольшое действие для себя')}</small></span></label><input type="time" id="plan-time-${i}" data-time-for="${e(h.id)}" value="${e(item?.time || h.time)}" aria-label="Время: ${e(h.name)}" required></div>`; }).join('')}</div><p class="day-plan-editor-note">Можно оставить день без списка. Настройки питания, воды и движения останутся вашими.</p>${errorText}<div class="dialog-actions">${btn('Отмена', 'close-modal', { cls: 'button button-ghost' })}${btn('Сохранить мой маршрут', '', { type: 'submit', cls: 'button button-primary', symbol: 'check' })}</div></form>`, { wide: true });
+  const form = dialog.querySelector('form');
+  const rhythmField = dialog.querySelector('#plan-rhythm');
+  for (const checkbox of form.querySelectorAll('[data-habit-id]')) {
+    const time = [...form.querySelectorAll('[data-time-for]')].find(x => x.dataset.timeFor === checkbox.dataset.habitId);
+    const update = () => { if (time) { time.disabled = !checkbox.checked; if (checkbox.checked) time.setAttribute('required', ''); else time.removeAttribute('required'); } };
+    checkbox.addEventListener('change', update); update();
+  }
+  rhythmField.addEventListener('change', () => {
+    const rhythm = RHYTHMS[rhythmField.value];
+    if (!rhythm) return;
+    for (const [id, time] of rhythm.slots) {
+      const input = [...form.querySelectorAll('[data-time-for]')].find(x => x.dataset.timeFor === id);
+      if (input) input.value = time;
+    }
+  });
+  form.addEventListener('submit', ev => {
+    ev.preventDefault();
+    try {
+      const raw = [...form.querySelectorAll('[data-habit-id]')].filter(x => x.checked).map(input => ({ habitId: input.dataset.habitId, time: [...form.querySelectorAll('[data-time-for]')].find(x => x.dataset.timeFor === input.dataset.habitId)?.value }));
+      const nextPlan = normalizePlan(raw);
+      if (nextPlan.length !== raw.length) throw new Error('Проверьте время выбранных ритуалов.');
+      const rhythm = rhythmField.value;
+      if (!Object.hasOwn(RHYTHMS, rhythm)) throw new Error('Выберите ритм дня.');
+      workspace.dayUpdate(date, d => { d.plan = nextPlan; d.rhythm = rhythm; d.intention = $('plan-intention').value.trim().slice(0, 120); });
+      closeModal(); render(); toast('Ваш маршрут сохранён. Следуйте удобному темпу.');
+    } catch (error) { showFormError(error, form); }
+  });
+}
+function openCheckIn(target = '') {
+  const date = target === 'today' ? dateKey() : selectedDate, day = workspace.getDay(date), future = date > dateKey();
+  const dialog = openModal(future ? 'Оставьте место для себя.' : 'Как вы — на самом деле?', `<form id="checkin-form" class="checkin-form"><p class="checkin-description">${future ? 'Что хочется принести в этот день?' : 'Без правильного ответа.<br>Просто немного внимания к себе.'}</p>${!future ? `<div class="checkin-moods" role="radiogroup" aria-label="Моё самочувствие">${MOODS.map(m => `<label class="checkin-choice"><input type="radio" name="checkin-mood" value="${m.id}" ${day.mood === m.id ? 'checked' : ''}>${icon(m.icon)}<span><strong>${m.name}</strong><small>${m.description}</small></span></label>`).join('')}</div><button type="button" id="clear-checkin-mood" class="text-button" style="margin-top:-10px;margin-bottom:20px">Пока без отметки</button>` : ''}${field('Сегодня я выбираю', 'checkin-intention', day.intention, 'maxlength="120" placeholder="Например, обедать без телефона"')}<label class="field" for="checkin-note"><span>Что хочется заметить</span><textarea id="checkin-note" rows="3" maxlength="3000" placeholder="Мысль, маленькая радость или то, что сейчас важно…">${e(day.note)}</textarea></label><span class="checkin-private">${icon('shield')}Личная заметка. Остаётся в вашем пространстве.</span>${errorText}<div class="dialog-actions">${btn('Пока не сейчас', 'close-modal', { cls: 'button button-ghost' })}${btn('Сохранить для себя', '', { type: 'submit', cls: 'button button-primary', symbol: 'check' })}</div></form>`, { wide: true });
+  const form = dialog.querySelector('form');
+  dialog.querySelector('#clear-checkin-mood')?.addEventListener('click', () => { for (const input of form.querySelectorAll('[name="checkin-mood"]')) input.checked = false; });
+  form.addEventListener('submit', ev => {
+    ev.preventDefault();
+    try {
+      const mood = future ? '' : [...form.querySelectorAll('[name="checkin-mood"]')].find(input => input.checked)?.value || '';
+      if (mood && !MOODS.some(m => m.id === mood)) throw new Error('Выберите подходящую отметку.');
+      workspace.dayUpdate(date, d => { d.mood = mood; d.intention = $('checkin-intention').value.trim().slice(0, 120); d.note = $('checkin-note').value.slice(0, 3000); });
+      closeModal(); render(); toast('Немного внимания к себе сохранено.');
+    } catch (error) { showFormError(error, form); }
+  });
+}
+function openMoment(id) {
+  const date = selectedDate, moment = dayPlan(workspace.state, workspace.getDay(date)).find(m => m.id === id);
+  if (!moment) return;
+  const prompts = { water: 'Стакан воды.<br>Простое начало заботы.', walk: 'Оставьте экран.<br>Посмотрите, что вокруг.', pause: 'Дайте вниманию<br>немного пространства.', breath: 'Вдохните спокойно.<br>Вернитесь к себе.' };
+  const action = id === 'water' ? 'custom-water' : id === 'walk' ? 'activity' : ['pause', 'breath'].includes(id) ? 'breathing' : null;
+  const label = id === 'water' ? 'Записать воду' : id === 'walk' ? 'Записать движение' : 'Открыть тихую комнату';
+  const dialog = openModal(moment.name, `<div class="moment-emblem">${icon(moment.icon)}</div><p class="moment-description">${prompts[id] || e(moment.detail || moment.name)}</p><p class="moment-time">В вашем маршруте · ${e(moment.time)}<br>Сейчас тоже подходящий момент.</p><p class="soft-copy">${moment.done ? 'Вы уже отметили этот ритуал. Можно вернуться к нему, если хочется.' : 'Это приглашение, а не обязательство. Сделайте так, как удобно вам.'}</p>${errorText}<div class="dialog-actions">${action ? btn(label, action, { cls: 'button button-ghost', symbol: moment.icon }) : ''}<button type="button" id="moment-complete" class="button button-primary">${icon('check')}<span>${moment.done ? 'Вернуть в маршрут' : 'Я сделал это для себя'}</span></button></div>`);
+  dialog.querySelector('#moment-complete').addEventListener('click', () => {
+    try {
+      if (date > dateKey()) throw new Error('Будущий ритуал пока можно только запланировать.');
+      workspace.dayUpdate(date, d => { d.habits = d.habits.includes(id) ? d.habits.filter(x => x !== id) : [...d.habits, id]; });
+      closeModal(); render(); toast(moment.done ? 'Ритуал возвращён в маршрут.' : 'Ещё немного заботы о себе.');
+    } catch (error) { showFormError(error, dialog); }
+  });
+}
+function openCommands() {
+  const commands = [
+    { id: 'food', title: 'Записать приём пищи', subtitle: 'Найти продукт или внести свой', symbol: 'bowl', kind: 'action', action: 'open-food', keywords: 'еда калории питание завтрак обед ужин' },
+    { id: 'water', title: 'Добавить стакан воды', subtitle: '+250 мл в выбранный день', symbol: 'drop', kind: 'action', action: 'add-water', value: '250', keywords: 'вода пить стакан 250' },
+    { id: 'quiet', title: 'Минута для себя', subtitle: 'Тихая комната · 1, 3 или 5 минут', symbol: 'wind', kind: 'action', action: 'breathing', keywords: 'дыхание пауза тишина отдых' },
+    { id: 'checkin', title: 'Отметить самочувствие', subtitle: 'Состояние, намерение и личная заметка', symbol: 'leaf', kind: 'action', action: 'check-in', keywords: 'заметка настроение как я самочувствие намерение' },
+    { id: 'plan', title: 'Собрать мой день', subtitle: 'Настроить время и выбрать ритуалы', symbol: 'calendar', kind: 'action', action: 'edit-day', keywords: 'маршрут план расписание день ритуалы' },
+    { id: 'activity', title: 'Записать движение', subtitle: 'Шаги и минуты активности', symbol: 'walk', kind: 'action', action: 'activity', keywords: 'шаги активность спорт прогулка' },
+    ...NAVCommands(),
+    ...RECIPES.map(r => ({ id: `recipe-${r.id}`, title: r.name, subtitle: `Рецепт · ${r.time} минут`, symbol: 'bowl', kind: 'recipe', value: r.id, keywords: 'рецепт приготовить' })),
+    ...[...workspace.state.products, ...PRODUCTS].map(p => ({ id: `product-${p.id}`, title: p.name, subtitle: `${num(p.kcal)} ккал / 100 г`, symbol: 'apple', kind: 'product', value: p.id, keywords: 'продукт еда' })),
+  ];
+  let matches = [], active = 0;
+  const dialog = openModal('Одно действие — и дальше.', `<div class="command-input-wrap">${icon('search')}<input id="command-search" type="search" placeholder="Что вам сейчас нужно?" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="command-results" autocomplete="off" autofocus></div><div id="command-results" class="command-list" role="listbox" aria-label="Быстрые действия"></div><div class="command-footnote"><span>↑ ↓ выбрать · Enter открыть</span><span>Esc — вернуться в день</span></div>`, { cls: 'command-dialog' });
+  const input = dialog.querySelector('#command-search'), list = dialog.querySelector('#command-results');
+  function draw() {
+    matches = commandMatches(commands, input.value).slice(0, 10);
+    active = Math.max(0, Math.min(active, matches.length - 1));
+    list.innerHTML = matches.map((c, i) => `<button type="button" class="command-item ${i === active ? 'active' : ''}" id="command-option-${i}" data-command-id="${e(c.id)}" role="option" aria-selected="${i === active}">${icon(c.symbol)}<span class="command-copy"><strong>${e(c.title)}</strong><small>${e(c.subtitle)}</small></span>${icon('arrow')}</button>`).join('') || '<p class="command-no-results">Пока ничего не нашлось. Попробуйте другое слово.</p>';
+    if (matches.length) input.setAttribute('aria-activedescendant', `command-option-${active}`); else input.removeAttribute('aria-activedescendant');
+    list.querySelectorAll('[data-command-id]').forEach((button, i) => button.addEventListener('click', () => run(matches[i])));
+  }
+  function run(command) {
+    if (!command) return;
+    closeModal();
+    try {
+      if (command.kind === 'route') navigate(command.value);
+      else if (command.kind === 'recipe') openRecipe(command.value);
+      else if (command.kind === 'product') { const p = productById(command.value); if (p) openFood('', { product: p }); }
+      else actions[command.action]?.(command.value || '');
+    } catch (error) { toast(error.message, { error: true }); }
+  }
+  input.addEventListener('input', () => { active = 0; draw(); });
+  input.addEventListener('keydown', event => {
+    if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); if (!matches.length) return; active = (active + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length; draw(); dialog.querySelector(`#command-option-${active}`)?.scrollIntoView({ block: 'nearest' }); }
+    if (event.key === 'Enter') { event.preventDefault(); run(matches[active]); }
+  });
+  draw();
+}
+function NAVCommands() { return views.NAV.map(([id, name, symbol]) => ({ id: `route-${id}`, title: name, subtitle: 'Перейти в раздел', symbol, kind: 'route', value: id, keywords: 'раздел открыть перейти' })); }
+
 function openBreathing() {
-  let timer = null, started = 0, elapsedBefore = 0, running = false, completed = false, lastPhase = '';
+  let timer = null, started = 0, elapsedBefore = 0, running = false, completed = false, lastPhase = '', duration = 60;
   const cleanup = () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility); };
-  const dialog = openModal('Минута для себя.', `<div class="breath-timer" id="breath-time" aria-live="off">01:00</div><div class="breath-scene"><div class="breath-orbit"></div><div class="breath-circle" id="breath-circle"></div><div class="breath-label"><strong id="breath-phase" aria-live="polite">Без спешки.</strong><small id="breath-cycle">Шесть спокойных циклов</small></div></div><p id="breath-description">Устройтесь удобно. Дышите мягко, без усилий.<br>Следуйте кругу в комфортном для вас темпе.</p><button type="button" id="breath-start" class="button button-light">${icon('play')}<span>Начать паузу</span></button><p class="breath-footnote">Если ритм неудобен, дышите как обычно или завершите паузу.</p>`, { cls: 'breathing-dialog', cleanup });
+  const dialog = openModal('Тихая комната.', `<div class="breath-durations" aria-label="Продолжительность паузы">${BREATH_DURATIONS.map(n => `<button type="button" data-duration="${n}" class="${n === 60 ? 'active' : ''}" aria-pressed="${n === 60}">${n / 60} мин</button>`).join('')}</div><div class="breath-timer" id="breath-time" aria-live="off">01:00</div><div class="breath-scene"><div class="breath-orbit"></div><div class="breath-circle" id="breath-circle"></div><div class="breath-label"><strong id="breath-phase" aria-live="polite">Без спешки.</strong><small id="breath-cycle">Шесть спокойных циклов</small></div></div><p id="breath-description">Устройтесь удобно. Дышите мягко, без усилий.<br>Следуйте кругу в комфортном для вас темпе.</p><button type="button" id="breath-start" class="button button-light">${icon('play')}<span>Начать паузу</span></button><p class="breath-footnote">Если ритм неудобен, дышите как обычно или завершите паузу.</p>`, { cls: 'breathing-dialog', cleanup });
   const button = dialog.querySelector('#breath-start');
+  dialog.querySelectorAll('[data-duration]').forEach(choice => choice.addEventListener('click', () => {
+    if (running || elapsedBefore > 0) return;
+    const next = Number(choice.dataset.duration); if (!BREATH_DURATIONS.includes(next)) return;
+    duration = next; completed = false; lastPhase = '';
+    for (const item of dialog.querySelectorAll('[data-duration]')) { item.classList.toggle('active', item === choice); item.setAttribute('aria-pressed', String(item === choice)); }
+    $('breath-time').textContent = `${String(duration / 60).padStart(2, '0')}:00`;
+    $('breath-phase').textContent = 'Без спешки.'; $('breath-cycle').textContent = `${duration / 10} спокойных циклов`;
+    $('breath-description').innerHTML = 'Устройтесь удобно. Дышите мягко, без усилий.<br>Следуйте кругу в комфортном для вас темпе.';
+    button.innerHTML = `${icon('play')}<span>Начать паузу</span>`;
+  }));
   function elapsed() { return elapsedBefore + (running ? performance.now() - started : 0); }
   function tick() {
-    const ms = elapsed(); const seconds = Math.max(0, Math.ceil((60000 - ms) / 1000));
+    const ms = elapsed(); const seconds = Math.max(0, Math.ceil((duration * 1000 - ms) / 1000));
     $('breath-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-    if (ms >= 60000) {
+    if (ms >= duration * 1000) {
       clearInterval(timer); running = false; completed = true; elapsedBefore = 0;
-      $('breath-time').textContent = 'МИНУТА ДЛЯ СЕБЯ'; $('breath-phase').textContent = 'Спасибо себе.';
+      $('breath-time').textContent = 'ВРЕМЯ ДЛЯ СЕБЯ'; $('breath-phase').textContent = 'Спасибо себе.';
       $('breath-cycle').textContent = 'Вы нашли время для паузы'; $('breath-circle').classList.remove('inhale');
       $('breath-description').textContent = 'Побудьте в этом спокойствии ещё немного. Возвращайтесь к делам, когда будете готовы.';
-      button.innerHTML = `${icon('play')}<span>Ещё одну минуту</span>`;
+      button.innerHTML = `${icon('play')}<span>Ещё немного тишины</span>`;
+      for (const choice of dialog.querySelectorAll('[data-duration]')) choice.disabled = false;
       try { workspace.dayUpdate(dateKey(), d => { if (!d.habits.includes('breath')) d.habits.push('breath'); }); render(); } catch (error) { toast(error.message, { error: true }); }
       return;
     }
     const phase = ms % 10000 < 4000 ? 'inhale' : 'exhale';
     if (phase !== lastPhase) { lastPhase = phase; $('breath-circle').style.setProperty('--phase-duration', phase === 'inhale' ? '4s' : '6s'); $('breath-circle').classList.toggle('inhale', phase === 'inhale'); $('breath-phase').textContent = phase === 'inhale' ? 'Вдох.' : 'Выдох.'; }
-    $('breath-cycle').textContent = `${Math.floor(ms / 10000) + 1} из 6 · в удобном темпе`;
+    $('breath-cycle').textContent = `${Math.floor(ms / 10000) + 1} из ${duration / 10} · в удобном темпе`;
   }
   function pause() { elapsedBefore = elapsed(); running = false; clearInterval(timer); button.innerHTML = `${icon('play')}<span>Продолжить</span>`; $('breath-phase').textContent = 'Пауза.'; lastPhase = ''; }
   function onVisibility() { if (document.hidden && running) pause(); }
@@ -245,6 +360,7 @@ function openBreathing() {
     if (running) { pause(); return; }
     if (completed) { elapsedBefore = 0; completed = false; }
     running = true; started = performance.now(); lastPhase = '';
+    for (const choice of dialog.querySelectorAll('[data-duration]')) choice.disabled = true;
     button.innerHTML = `${icon('pause')}<span>Приостановить</span>`; tick(); timer = setInterval(tick, 150);
   });
 }
@@ -253,11 +369,11 @@ function openPrivacy() {
   openModal('Личное остаётся личным.', `<div class="about-copy"><p>Дневник RITUA хранится локально в этом браузере. Приложение не публикует ваши записи и не отправляет их в стороннюю базу.</p></div><div class="privacy-facts">${[['shield', 'Ваш дневник — на вашем устройстве', 'Питание, вода, вес, имя и заметки сохраняются в localStorage этого браузера. В другом браузере их не будет без импорта копии.'], ['download', 'Копия, которой управляете вы', 'JSON сохраняет все записи, настройки и перенесённые данные FitCat. CSV подходит для анализа статистики. Очистка браузера может удалить локальный дневник.'], ['search', 'Внешний поиск — по вашему действию', 'При нажатии «Искать в Open Food Facts» название продукта отправляется этому сервису. Личные записи не отправляются. Встроенная база работает без сети.'], ['wifi', 'Работа без интернета', 'После первого открытия на поддерживаемом HTTPS-хостинге приложение кэширует интерфейс. Поиск в интернете и вход на закрытый сайт требуют подключения.']].map(([symbol, title, copy]) => `<div class="privacy-fact">${icon(symbol)}<div><strong>${title}</strong>${copy}</div></div>`).join('')}</div><p class="soft-copy">Доступ к опубликованной закрытой версии управляется платформой размещения. Эта памятка описывает поведение самого приложения.</p><div class="dialog-actions">${btn('Скачать мои данные', 'export-json', { cls: 'button button-ghost', symbol: 'download' })}${btn('Понятно', 'close-modal', { cls: 'button button-primary' })}</div>`);
 }
 function openAbout() {
-  openModal('Забота в вашем ритме.', `<div class="about-brand">${brandMark()}<span>ritua.</span></div><div class="about-copy"><p>Личное пространство для хорошего самочувствия. Питание, вода, движение и небольшие ритуалы, которым найдётся место даже в насыщенном дне.</p><p>Мы верим в внимание к себе без давления, бесконечных серий и гонки за идеальными цифрами.</p><h3>Простые и честные ориентиры</h3><p>Цели задаются вами. Начальные значения — пример, а не медицинская рекомендация. Справочная пищевая ценность приблизительна; проверяйте конкретные продукты по этикетке.</p><p>О движении: <a href="https://www.cdc.gov/physical-activity-basics/guidelines/adults.html" target="_blank" rel="noopener noreferrer">материалы CDC</a>. О питьевом режиме: <a href="https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/water-drinks-nutrition/" target="_blank" rel="noopener noreferrer">материалы NHS</a>.</p><h3>RITUA 1.0</h3><p>Новая глава FitCat. Встроенные продукты и рецепты доступны без подписки. Автоматическое распознавание еды, облачная синхронизация и оплата в эту версию не включены.</p></div><div class="dialog-actions">${btn('О конфиденциальности', 'privacy', { cls: 'button button-ghost', symbol: 'shield' })}${btn('Хорошо', 'close-modal', { cls: 'button button-primary' })}</div>`);
+  openModal('Забота в вашем ритме.', `<div class="about-brand">${brandMark()}<span>ritua.</span></div><div class="about-copy"><p>Личное пространство для хорошего самочувствия. Питание, вода, движение и небольшие ритуалы, которым найдётся место даже в насыщенном дне.</p><p>Мы верим в внимание к себе без давления, бесконечных серий и гонки за идеальными цифрами.</p><h3>Простые и честные ориентиры</h3><p>Цели задаются вами. Начальные значения — пример, а не медицинская рекомендация. Справочная пищевая ценность приблизительна; проверяйте конкретные продукты по этикетке.</p><p>О движении: <a href="https://www.cdc.gov/physical-activity-basics/guidelines/adults.html" target="_blank" rel="noopener noreferrer">материалы CDC</a>. О питьевом режиме: <a href="https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/water-drinks-nutrition/" target="_blank" rel="noopener noreferrer">материалы NHS</a>.</p><h3>RITUA Atelier 2.0</h3><p>Экспериментальная глава RITUA. Личный маршрут дня, отметка самочувствия, быстрые команды и тихая комната. Встроенные продукты и рецепты доступны без подписки. Автоматическое распознавание еды, облачная синхронизация и оплата в эту версию не включены.</p></div><div class="dialog-actions">${btn('О конфиденциальности', 'privacy', { cls: 'button button-ghost', symbol: 'shield' })}${btn('Хорошо', 'close-modal', { cls: 'button button-primary' })}</div>`);
 }
 function openReminders() {
   const day = workspace.getDay(dateKey());
-  openModal('Немного времени для себя.', `<p class="soft-copy">Ваши ритуалы на сегодня. Время — мягкий ориентир, а не ещё один дедлайн.</p><div class="reminders-list">${[...workspace.state.habits].sort((a, b) => a.time.localeCompare(b.time)).map(h => `<div class="reminder-row">${icon(h.icon)}<div><strong>${e(h.name)}</strong><small>${e(h.detail)}</small></div><span>${day.habits.includes(h.id) ? icon('check') : e(h.time)}</span></div>`).join('')}</div><div class="inline-note compact">${icon('bell')}Расписание доступно внутри приложения. Уведомления, когда приложение закрыто, не отправляются.</div><div class="dialog-actions">${btn('Перейти к ритуалам', 'go-rituals', { cls: 'button button-primary', symbol: 'arrow' })}</div>`);
+  openModal('Ваш личный маршрут.', `<p class="soft-copy">Ваш выбранный ритм на сегодня. Время — мягкий ориентир, а не ещё один дедлайн.</p><div class="reminders-list">${dayPlan(workspace.state, day).map(h => `<div class="reminder-row">${icon(h.icon)}<div><strong>${e(h.name)}</strong><small>${e(h.detail)}</small></div><span>${day.habits.includes(h.id) ? icon('check') : e(h.time)}</span></div>`).join('')}</div><div class="inline-note compact">${icon('bell')}Расписание доступно внутри приложения. Уведомления, когда приложение закрыто, не отправляются.</div><div class="dialog-actions">${btn('Перейти к ритуалам', 'go-rituals', { cls: 'button button-primary', symbol: 'arrow' })}</div>`);
 }
 async function importFile(file) {
   if (!file) return;
@@ -284,7 +400,9 @@ function toggleFavorite(id, button) {
 }
 const actions = {
   'close-modal': closeModal,
-  'go-settings': () => navigate('settings'), 'go-rituals': () => { selectedDate = dateKey(); navigate('rituals'); },
+  'go-settings': () => navigate('settings'), 'go-diary': () => navigate('diary'),
+  'edit-day': openDayEditor, 'check-in': openCheckIn, commands: openCommands, moment: openMoment,
+  'set-rhythm': value => { if (!Object.hasOwn(RHYTHMS, value)) throw new Error('Выберите ритм дня.'); updateDay(d => { d.rhythm = value; d.plan = null; }); }, 'go-rituals': () => { selectedDate = dateKey(); navigate('rituals'); },
   setup: openSetup, privacy: openPrivacy, about: openAbout, reminders: openReminders, breathing: openBreathing,
   'open-food': value => openFood(MEALS.some(m => m.id === value) ? value : ''),
   'custom-product': () => openFood('', { productOnly: true }),
@@ -368,7 +486,7 @@ document.addEventListener('keydown', ev => {
     ev.preventDefault(); tabs[next]?.click();
     const currentTabs = [...document.querySelectorAll('[role="tablist"] [role="tab"]')]; currentTabs[next]?.focus();
   }
-  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') { ev.preventDefault(); openFood(); }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') { ev.preventDefault(); openCommands(); }
 });
 window.addEventListener('beforeinstallprompt', ev => { ev.preventDefault(); installPrompt = ev; });
 window.addEventListener('appinstalled', () => { installPrompt = null; toast('RITUA установлена.'); });

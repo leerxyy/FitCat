@@ -18,7 +18,7 @@ function change(id, value) { $(id).value = value; $(id).dispatchEvent(new Event(
 test('launch shows clearly labeled demo with no persistent diary', () => {
   assert.equal(workspace.demo, true); assert.match($('demo-banner').textContent, /Деморежим/);
   assert.equal(env.localStorage.getItem(STORAGE_KEY), null);
-  assert.equal($('main').querySelectorAll('h1').length, 1); assert.match($('main').textContent, /В вашем ритме/);
+  assert.equal($('main').querySelectorAll('h1').length, 1); assert.match($('main').textContent, /День, в котором/);
 });
 test('all six routes render without duplicate IDs or invalid SVG numbers', async () => {
   for (const route of ['overview', 'diary', 'rituals', 'progress', 'library', 'settings']) {
@@ -145,6 +145,77 @@ test('storage failure in food submission keeps form open and previous records in
   submit($('food-form')); await tick(); assert.equal(workspace.getDay(dateKey()).foods.length, count); assert.ok($('food-form')); assert.equal($('food-form').querySelector('.form-error').hidden, false);
   env.localStorage.setItem = original; await click('close-modal');
 });
+test('changing daily rhythm preserves nutrition goals and completed actions', async () => {
+  await go('overview'); const profile = structuredClone(workspace.state.profile), habits = [...workspace.getDay(dateKey()).habits];
+  await click('set-rhythm', 'focus'); assert.equal(workspace.getDay(dateKey()).rhythm, 'focus');
+  assert.deepEqual(workspace.state.profile, profile); assert.deepEqual(workspace.getDay(dateKey()).habits, habits);
+});
+test('day editor saves selected rituals, time and intention without changing other dates', async () => {
+  await click('edit-day');
+  for (const checkbox of $('day-plan-form').querySelectorAll('[data-habit-id]')) { checkbox.checked = checkbox.dataset.habitId === 'water'; checkbox.dispatchEvent(new Event('change', { bubbles: true })); }
+  const time = $('day-plan-form').querySelectorAll('[data-time-for]').find(el => el.dataset.timeFor === 'water'); time.value = '10:35';
+  input('plan-intention', 'Спокойно пообедать'); submit($('day-plan-form')); await tick();
+  assert.deepEqual(workspace.getDay(dateKey()).plan, [{ habitId: 'water', time: '10:35' }]); assert.equal(workspace.getDay(dateKey()).intention, 'Спокойно пообедать');
+  assert.equal(workspace.getDay(shiftDate(dateKey(), -1)).plan, null);
+});
+test('day editor supports a day without a task list and disables unselected times', async () => {
+  await click('edit-day');
+  for (const checkbox of $('day-plan-form').querySelectorAll('[data-habit-id]')) { checkbox.checked = false; checkbox.dispatchEvent(new Event('change', { bubbles: true })); }
+  assert.ok($('day-plan-form').querySelectorAll('[data-time-for]').every(input => input.disabled));
+  submit($('day-plan-form')); await tick(); assert.deepEqual(workspace.getDay(dateKey()).plan, []); assert.ok(document.querySelector('.unplanned-day'));
+  await click('set-rhythm', 'restore'); assert.equal(workspace.getDay(dateKey()).plan, null);
+});
+test('check-in saves mood, intention and note with literal markup kept as text', async () => {
+  await click('check-in', 'today');
+  for (const radio of $('checkin-form').querySelectorAll('[name="checkin-mood"]')) radio.checked = radio.value === 'low';
+  input('checkin-intention', '<script>private()</script>'); input('checkin-note', 'Хочу немного тишины'); submit($('checkin-form')); await tick();
+  assert.equal(workspace.getDay(dateKey()).mood, 'low'); assert.equal(workspace.getDay(dateKey()).note, 'Хочу немного тишины');
+  assert.equal($('main').querySelectorAll('script').length, 0); assert.match($('current-mood').textContent, /Нужна забота/);
+});
+test('header check-in always refers to today while the journal shows another date', async () => {
+  change('selected-date', shiftDate(dateKey(), -1)); await click('check-in', 'today'); input('checkin-note', 'Отметка за сегодня'); submit($('checkin-form')); await tick();
+  assert.equal(workspace.getDay(dateKey()).note, 'Отметка за сегодня'); assert.equal(workspace.getDay(shiftDate(dateKey(), -1)).note, '');
+  change('selected-date', dateKey());
+});
+test('a route moment opens a useful action and can be completed directly', async () => {
+  await click('moment', 'pause'); assert.ok($('moment-complete')); $('moment-complete').click(); await tick();
+  assert.ok(workspace.getDay(dateKey()).habits.includes('pause'));
+});
+test('command palette filters actions and opens the quiet room', async () => {
+  await click('commands'); input('command-search', 'тих');
+  const command = document.querySelector('[data-command-id="quiet"]'); assert.ok(command); command.click(); await tick();
+  assert.match($('dialog-title').textContent, /Тихая комната/); await click('close-modal');
+});
+test('command palette opens a product ready for portion entry', async () => {
+  await click('commands'); input('command-search', 'КЕФИР'); document.querySelector('[data-command-id="product-kefir"]').click(); await tick();
+  assert.equal($('food-name').value, 'Кефир 1%'); assert.equal(Number($('food-kcal').value), 40); await click('close-modal');
+});
+test('command palette keyboard Enter navigates to a filtered section', async () => {
+  await click('commands'); input('command-search', 'Динамика');
+  const event = new Event('keydown', { bubbles: true, cancelable: true }); Object.defineProperty(event, 'key', { value: 'Enter' }); $('command-search').dispatchEvent(event); await tick();
+  assert.equal(location.hash, '#progress'); assert.equal(document.querySelector('#modal-root dialog'), null);
+});
+test('three and five minute pauses run for the selected duration, never just one minute', async () => {
+  await go('overview');
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'performance'); let now = 0;
+  Object.defineProperty(globalThis, 'performance', { configurable: true, value: { now: () => now } });
+  try {
+    for (const seconds of [180, 300]) {
+      now = 0; await click('breathing'); document.querySelector(`[data-duration="${seconds}"]`).click(); assert.equal($('breath-time').textContent, `0${seconds / 60}:00`);
+      $('breath-start').click(); assert.ok(document.querySelector('[data-duration="60"]').disabled);
+      now = 60000; env.runIntervals(150); assert.notEqual($('breath-phase').textContent, 'Спасибо себе.');
+      now = seconds * 1000; env.runIntervals(150); assert.equal($('breath-phase').textContent, 'Спасибо себе.');
+      assert.equal(document.querySelector('[data-duration="60"]').disabled, false); await click('close-modal');
+    }
+  } finally { Object.defineProperty(globalThis, 'performance', descriptor); }
+});
+test('failed check-in save keeps draft fields visible and leaves previous data intact', async () => {
+  await go('overview'); const before = workspace.getDay(dateKey()).note; await click('check-in', 'today'); input('checkin-note', 'Незавершённая мысль');
+  const original = env.localStorage.setItem; env.localStorage.setItem = () => { throw new Error('Quota'); };
+  submit($('checkin-form')); await tick(); assert.equal(workspace.getDay(dateKey()).note, before); assert.equal($('checkin-note').value, 'Незавершённая мысль'); assert.equal($('checkin-form').querySelector('.form-error').hidden, false);
+  env.localStorage.setItem = original; await click('close-modal');
+});
+
 test('JSON restoration requires review and commits a validated backup only on confirmation', async () => {
   const beforeName = workspace.state.profile.name;
   const next = newWorkspace({ name: 'Восстановленное пространство' });

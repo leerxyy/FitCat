@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = path.join(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const file of ['index.html', 'styles.css', 'manifest.webmanifest', 'app', 'assets']) await cp(path.join(root, file), path.join(dist, file), { recursive: true });
+for (const file of ['index.html', 'styles.css', 'atelier.css', 'manifest.webmanifest', 'app', 'assets']) await cp(path.join(root, file), path.join(dist, file), { recursive: true });
 const files = [];
 async function walk(dir, rel = '') {
   for (const entry of (await readdir(dir)).sort()) {
@@ -22,5 +22,5 @@ const source = (await readFile(path.join(root, 'scripts/sw-template.js'), 'utf8'
 await writeFile(path.join(dist, 'sw.js'), source);
 await writeFile(path.join(root, 'sw.js'), source);
 await writeFile(path.join(dist, '.nojekyll'), '');
-await writeFile(path.join(root, 'docs/build-info.json'), JSON.stringify({ version: '1.0.0', fingerprint, files: [...files, 'sw.js'], totalBytes: (await Promise.all(files.map(f => stat(path.join(dist, f))))).reduce((n, f) => n + f.size, Buffer.byteLength(source)) }, null, 2) + '\n');
-console.log(`RITUA 1.0.0: ${files.length + 1} files → dist/ (${fingerprint})`);
+await writeFile(path.join(root, 'docs/build-info.json'), JSON.stringify({ version: '2.0.0', fingerprint, files: [...files, 'sw.js'], totalBytes: (await Promise.all(files.map(f => stat(path.join(dist, f))))).reduce((n, f) => n + f.size, Buffer.byteLength(source)) }, null, 2) + '\n');
+console.log(`RITUA Atelier 2.0.0: ${files.length + 1} files → dist/ (${fingerprint})`);
