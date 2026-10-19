@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "fingerprint": "bb429c1df73664",
+  "files": [
+    "app/app.js",
+    "app/core.js",
+    "app/data.js",
+    "app/icons.js",
+    "app/theme.js",
+    "app/ui.js",
+    "app/views.js",
+    "assets/favicon.svg",
+    "assets/icon-192.png",
+    "assets/icon-512.png",
+    "assets/icon-maskable-512.png",
+    "assets/logo-light.svg",
+    "assets/logo.svg",
+    "assets/ritua-still-life.webp",
+    "index.html",
+    "manifest.webmanifest",
+    "styles.css",
+    "sw.js"
+  ],
+  "totalBytes": 502161
+}

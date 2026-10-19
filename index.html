@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#244638">
+  <meta name="description" content="RITUA — ваше личное пространство для питания, воды, движения и спокойных ритуалов. Забота о себе в вашем ритме.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="application-name" content="RITUA">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta property="og:title" content="RITUA — ваш ритм, ваш баланс">
+  <meta property="og:description" content="Персональное пространство для хорошего самочувствия. Питание, вода, движение и маленькие ежедневные ритуалы.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/ritua-still-life.webp">
+  <title>RITUA — ваш ритм, ваш баланс</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preload" as="image" href="assets/ritua-still-life.webp" fetchpriority="high">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app/theme.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к содержимому</a>
+  <div id="app"><div class="startup"><svg viewBox="0 0 40 40" width="42" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 30V10h9a7 7 0 0 1 0 14H9m10 0 11 6"/></svg><span>RITUA</span><p>Немного пространства для себя.</p></div></div>
+  <div id="modal-root"></div>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <input type="file" id="import-file" accept=".json,application/json" hidden>
+  <noscript><div class="noscript"><h1>RITUA</h1><p>Для работы дневника включите JavaScript в настройках браузера.</p></div></noscript>
+  <script type="module" src="app/app.js"></script>
+</body>
+</html>
